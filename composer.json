@@ -30,5 +30,12 @@
     },
     "autoload-dev": {
         "psr-4": {"Flaxandteal\\EspyFM\\": "tests/Flaxandteal/EspyFM/"}
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Flaxandteal\\EspyFM\\EspyFMServiceProvider"
+            ]
+        }
     }
 }

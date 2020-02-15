@@ -10,6 +10,9 @@ use GuzzleHttp\Psr7\Response;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Exception\RequestException;
 
+/**
+ * EspyFMServiceTest checks the EspyFM Service.
+ */
 class EspyFMServiceTest extends TestCase
 {
     /**
@@ -19,7 +22,7 @@ class EspyFMServiceTest extends TestCase
      */
     protected $client;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         // Create a mock and queue two responses.
         $mock = new MockHandler([
@@ -32,6 +35,8 @@ class EspyFMServiceTest extends TestCase
 
         $handlerStack = HandlerStack::create($mock);
         $this->client = new Client(['handler' => $handlerStack]);
+
+        $this->baseUrl = 'http://localhost:5000';
     }
 
     /**
@@ -39,7 +44,13 @@ class EspyFMServiceTest extends TestCase
      */
     public function testConstruct()
     {
-        $espyService = new EspyFMService($client);
+        $espyService = new EspyFMService($this->client, $this->baseUrl);
+
+        $this->assertEquals($this->client, $espyService->getClient());
+        $this->assertEquals($this->baseUrl . '/', $espyService->getBaseUrl());
+
+        $espyService = new EspyFMService($this->client, $this->baseUrl . '/');
+        $this->assertEquals($this->baseUrl . '/', $espyService->getBaseUrl());
     }
 
     /**
@@ -47,5 +58,13 @@ class EspyFMServiceTest extends TestCase
      */
     public function testGetRecommendations()
     {
+        $espyService = new EspyFMService($this->client, $this->baseUrl);
+
+        $recommendations = $espyService->getRecommendations();
+
+        $this->assertEquals($recommendations, [
+            'toast',
+            'visible'
+        ]);
     }
 }
