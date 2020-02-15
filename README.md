@@ -30,9 +30,9 @@ $user = [
 ];
 $espyRecommendations = $espyService->getRecommendation($user);
 
-$espyRecommendations->forEach(function ($recommend) {
+foreach ($espyRecommendations as $recommend) {
   var_dump($recommend);
-});
+}
 ```
 
 This produces something like the following output:
