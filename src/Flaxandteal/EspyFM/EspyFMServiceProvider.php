@@ -19,7 +19,7 @@ class EspyFMServiceProvider extends ServiceProvider
 
     public function register()
     {
-        $this->mergeConfigFrom(__DIR__.'/../config/espyfm.php', 'espyfm');
+        $this->mergeConfigFrom(__DIR__.'/../../../config/espyfm.php', 'espyfm');
 
         $this->app->singleton(EspyFMService::class, function ($app, GuzzleHttp\Client $client, Repository $config) {
             $baseUrl = $config->get('espyfm.api-base-url', 'http://localhost:5000');
