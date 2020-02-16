@@ -13,7 +13,7 @@ class EspyFMServiceProvider extends ServiceProvider
     public function boot()
     {
         $this->publishes([
-            __DIR__.'/../config/espyfm.php' => config_path('espyfm.php'),
+            __DIR__.'/../../../config/espyfm.php' => config_path('espyfm.php'),
         ], 'config');
     }
 
