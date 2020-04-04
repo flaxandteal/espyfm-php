@@ -19,6 +19,9 @@ trait IsRecommenderTrait
                 'categories' => [
                     'type' => 'keyword',
                 ],
+                'recommendations' => [
+                    'type' => 'keyword',
+                ],
                 'embedding_vector' => [
                     'type' => 'binary',
                     'doc_values' => true,
