@@ -4,6 +4,7 @@ namespace Flaxandteal\EspyFM;
 
 use GuzzleHttp;
 use InvalidArgumentException;
+use ScoutElastic\Facades\ElasticClient;
 
 class EspyFMService
 {
@@ -111,27 +112,34 @@ class EspyFMService
             $this->baseUrl . 'users/' . $user->id . '/rhs' // RMV: should this be espyfm_lightfm_id?
         );
         $vector = json_decode($response->getBody()->getContents());
+        $shortVector = array_map(function ($entry) {
+            return round($entry, 4);
+        }, $vector);
 
-        $recommendations = $items->search('')
-            ->rule(function ($builder) use ($vector) {
-                return [
-                    'must' => [
-                        'function_score' => [
-                            'query' => [
-                                'exists' => [
-                                    'field' => 'embedding_vector'
+        $itemModelIndex = 'item_model_index';
+        $recommendations = ElasticClient::search([
+            'index' => $itemModelIndex,
+            'body' => [
+                'query' => [
+                    'bool' => [
+                        'must' => [
+                            'function_score' => [
+                                'query' => [
+                                    'exists' => [
+                                        'field' => 'embedding_vector'
+                                    ],
                                 ],
-                            ],
-                            'functions' => [
-                                [
-                                    'script_score' => [
-                                        'script' => [
-                                            'source' => 'binary_vector_score',
-                                            'lang' => 'knn',
-                                            'params' => [
-                                                'cosine' => false,
-                                                'field' => 'embedding_vector',
-                                                'vector' => $vector
+                                'functions' => [
+                                    [
+                                        'script_score' => [
+                                            'script' => [
+                                                'source' => 'binary_vector_score',
+                                                'lang' => 'knn',
+                                                'params' => [
+                                                    'cosine' => false,
+                                                    'field' => 'embedding_vector',
+                                                    'vector' => $shortVector
+                                                ]
                                             ]
                                         ]
                                     ]
@@ -139,9 +147,24 @@ class EspyFMService
                             ]
                         ]
                     ]
+                ]
+            ]
+        ]);
+
+        $lightFmIds = array_map(function ($recommendation) {
+            return $recommendation['_source']['original_id'];
+        }, $recommendations['hits']['hits']);
+
+        $recommendations = $items->search('')
+            ->rule(function ($builder) use ($lightFmIds) {
+                return [
+                    'filter' => [
+                        'ids' => [
+                            'values' => $lightFmIds
+                        ]
+                    ]
                 ];
             });
-
         return $recommendations->get();
     }
 
@@ -189,24 +212,8 @@ class EspyFMService
     public function rebuildRecommendations()
     {
         // TODO: work out how to handle not-yet-lightfmed-item-recommendations
-        $itemIndex = app()->make($this->itemClass)->getEspyFMIndexingKey();
-        $users = app()->make($this->userClass)
-            ->with('recommendedItems')
-            ->get()
-            ->map(
-                function ($user) use ($itemIndex) {
-                    return [
-                        $user->espyfm_lightfm_id,
-                        $user->recommendedItems->pluck('pivot.score', $itemIndex)
-                    ];
-                }
-            );
-
         $response = $this->client->post(
-            $this->baseUrl . 'rebuild',
-            [
-                'json' => $users
-            ]
+            $this->baseUrl . 'rebuild'
         );
 
         $result = $response->getBody();

@@ -58,4 +58,15 @@ trait IsRecommendedItemTrait
     {
         return $this->getScoutKeyName();
     }
+
+    /**
+     * Get the LightFM ID as a string
+     *
+     * @return string
+     */
+    public function getEspyLightfmIdStringAttribute()
+    {
+        // FIXME: should this use getEspyFMIndexingKey?
+        return (string)$this->espy_lightfm_id;
+    }
 }

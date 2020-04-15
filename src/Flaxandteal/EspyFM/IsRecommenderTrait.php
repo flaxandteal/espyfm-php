@@ -81,7 +81,8 @@ trait IsRecommenderTrait
     public function recommends($item)
     {
         $this->checkIsRecommendedItem($item);
-        $this->recommendedItems()->sync([$item->getKey() => ['score' => 1]], false);
+        $this->recommendedItems()->syncWithoutDetaching([$item->getKey() => ['score' => 1]]);
+        $this->recommendedItems->push($item);
     }
 
     /**
