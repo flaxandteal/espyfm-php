@@ -99,46 +99,48 @@ class EspyFMService
      */
     public function getRecommendations($user)
     {
-        $userClass = $this->getRecommenderClass();
-        if (! $user instanceof $userClass) {
-            throw new InvalidArgumentException(
-                __('User for Elasticsearch was of type ' . get_class($user) . ' not of type ' . $userClass)
+        if (config('espyfm.enabled', true)) {
+            $userClass = $this->getRecommenderClass();
+            if (! $user instanceof $userClass) {
+                throw new InvalidArgumentException(
+                    __('User for Elasticsearch was of type ' . get_class($user) . ' not of type ' . $userClass)
+                );
+            }
+
+            $items = app()->make($this->getRecommendedItemClass());
+
+            $response = $this->client->get(
+                $this->baseUrl . 'users/' . $user->id . '/rhs'
             );
-        }
+            $vector = json_decode($response->getBody()->getContents());
+            $shortVector = array_map(function ($entry) {
+                return round($entry, 4);
+            }, $vector);
 
-        $items = app()->make($this->getRecommendedItemClass());
-
-        $response = $this->client->get(
-            $this->baseUrl . 'users/' . $user->id . '/rhs' // RMV: should this be espyfm_lightfm_id?
-        );
-        $vector = json_decode($response->getBody()->getContents());
-        $shortVector = array_map(function ($entry) {
-            return round($entry, 4);
-        }, $vector);
-
-        $itemModelIndex = 'item_model_index';
-        $recommendations = ElasticClient::search([
-            'index' => $itemModelIndex,
-            'body' => [
-                'query' => [
-                    'bool' => [
-                        'must' => [
-                            'function_score' => [
-                                'query' => [
-                                    'exists' => [
-                                        'field' => 'embedding_vector'
+            $itemModelIndex = 'item_model_index';
+            $recommendations = ElasticClient::search([
+                'index' => $itemModelIndex,
+                'body' => [
+                    'query' => [
+                        'bool' => [
+                            'must' => [
+                                'function_score' => [
+                                    'query' => [
+                                        'exists' => [
+                                            'field' => 'embedding_vector'
+                                        ],
                                     ],
-                                ],
-                                'functions' => [
-                                    [
-                                        'script_score' => [
-                                            'script' => [
-                                                'source' => 'binary_vector_score',
-                                                'lang' => 'knn',
-                                                'params' => [
-                                                    'cosine' => false,
-                                                    'field' => 'embedding_vector',
-                                                    'vector' => $shortVector
+                                    'functions' => [
+                                        [
+                                            'script_score' => [
+                                                'script' => [
+                                                    'source' => 'binary_vector_score',
+                                                    'lang' => 'knn',
+                                                    'params' => [
+                                                        'cosine' => false,
+                                                        'field' => 'embedding_vector',
+                                                        'vector' => $shortVector
+                                                    ]
                                                 ]
                                             ]
                                         ]
@@ -148,24 +150,26 @@ class EspyFMService
                         ]
                     ]
                 ]
-            ]
-        ]);
+            ]);
 
-        $lightFmIds = array_map(function ($recommendation) {
-            return $recommendation['_source']['original_id'];
-        }, $recommendations['hits']['hits']);
+            $lightFmIds = array_map(function ($recommendation) {
+                return $recommendation['_source']['original_id'];
+            }, $recommendations['hits']['hits']);
 
-        $recommendations = $items->search('')
-            ->rule(function ($builder) use ($lightFmIds) {
-                return [
-                    'filter' => [
-                        'ids' => [
-                            'values' => $lightFmIds
+            $recommendations = $items->search('')
+                ->rule(function ($builder) use ($lightFmIds) {
+                    return [
+                        'filter' => [
+                            'ids' => [
+                                'values' => $lightFmIds
+                            ]
                         ]
-                    ]
-                ];
-            });
-        return $recommendations->get();
+                    ];
+                });
+            return $recommendations->get();
+        } else {
+            return collect();
+        }
     }
 
     /**
@@ -173,17 +177,21 @@ class EspyFMService
      */
     public function generateItems()
     {
-        $response = $this->client->post(
-            $this->baseUrl . 'populate_items',
-            [
-                'json' => [
+        if (config('espyfm.enabled', true)) {
+            $response = $this->client->post(
+                $this->baseUrl . 'populate_items',
+                [
+                    'json' => [
+                    ]
                 ]
-            ]
-        );
+            );
 
-        $result = $response->getBody();
-        $items = json_decode($result->getContents());
-        return $items;
+            $result = $response->getBody();
+            $items = json_decode($result->getContents());
+            return $items;
+        } else {
+            return collect();
+        }
     }
 
     /**
@@ -191,19 +199,23 @@ class EspyFMService
      */
     public function populateRecommendations()
     {
-        $response = $this->client->post(
-            $this->baseUrl . 'populate',
-            [
-                'json' => [
+        if (config('espyfm.enabled', true)) {
+            $response = $this->client->post(
+                $this->baseUrl . 'populate',
+                [
+                    'json' => [
+                    ]
                 ]
-            ]
-        );
+            );
 
-        $result = $response->getBody();
+            $result = $response->getBody();
 
-        $recommendations = json_decode($result->getContents());
+            $recommendations = json_decode($result->getContents());
 
-        return $recommendations->users;
+            return $recommendations->users;
+        } else {
+            return collect();
+        }
     }
 
     /**
@@ -211,15 +223,19 @@ class EspyFMService
      */
     public function rebuildRecommendations()
     {
-        // TODO: work out how to handle not-yet-lightfmed-item-recommendations
-        $response = $this->client->post(
-            $this->baseUrl . 'rebuild'
-        );
+        if (config('espyfm.enabled', true)) {
+            // TODO: work out how to handle not-yet-lightfmed-item-recommendations
+            $response = $this->client->post(
+                $this->baseUrl . 'rebuild'
+            );
 
-        $result = $response->getBody();
+            $result = $response->getBody();
 
-        $recommendations = json_decode($result->getContents());
+            $recommendations = json_decode($result->getContents());
 
-        return $recommendations->success;
+            return $recommendations->success;
+        } else {
+            return true;
+        }
     }
 }
